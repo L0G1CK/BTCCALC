@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Mining ROI Calculator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Калькулятор доходности майнинга</title>
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
@@ -47,9 +47,9 @@
   </style>
 </head>
 <body>
-  <h1>Mining ROI Calculator</h1>
+  <h1>Калькулятор доходности майнинга</h1>
 
-  <div id="btc-price">Загрузка цены BTC...</div>
+  <div id="btc-price">Загрузка курса BTC...</div>
   <div id="profit-1ths">Загрузка доходности...</div>
 
   <label>Введите ваш хешрейт (TH/s):</label>
@@ -70,22 +70,26 @@
     let profitabilityPerTHPerDay = 0;
 
     async function fetchBTC() {
-      const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
-      const data = await res.json();
-      btcPrice = data.bitcoin.usd;
-      document.getElementById('btc-price').textContent = `Курс BTC: $${btcPrice.toLocaleString()}`;
+      try {
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+        const data = await res.json();
+        btcPrice = data.bitcoin.usd;
+        document.getElementById('btc-price').textContent = `Курс BTC: $${btcPrice.toLocaleString()}`;
+      } catch (err) {
+        document.getElementById('btc-price').textContent = 'Не удалось загрузить курс BTC';
+      }
     }
 
     async function fetchProfitability() {
-      const res = await fetch('https://api.minerstat.com/v2/coins?list=btc');
-      const data = await res.json();
-      const btc = data.find(coin => coin.coin === 'BTC');
-
-      if (btc) {
-        profitabilityPerTHPerDay = btc.estimated_rewards; // BTC на 1 TH/s в день
+      try {
+        const res = await fetch('https://whattomine.com/api/v1/coins/1.json');
+        const data = await res.json();
+        profitabilityPerTHPerDay = data.reward_block / data.difficulty * Math.pow(10, 12) * 86400; // BTC на 1 TH/s в день
         const usdPerTH = profitabilityPerTHPerDay * btcPrice;
         document.getElementById('profit-1ths').textContent =
           `Доходность 1 TH/s в день: ${usdPerTH.toFixed(4)} USD`;
+      } catch (err) {
+        document.getElementById('profit-1ths').textContent = 'Не удалось загрузить доходность';
       }
     }
 
@@ -93,6 +97,11 @@
       const hashrate = parseFloat(document.getElementById('hashrate').value);
       const generator = parseFloat(document.getElementById('generator').value);
       const equipment = parseFloat(document.getElementById('equipment').value);
+
+      if (isNaN(hashrate) || isNaN(generator) || isNaN(equipment) || btcPrice === 0 || profitabilityPerTHPerDay === 0) {
+        document.getElementById('result').innerHTML = `Введите все значения корректно.`;
+        return;
+      }
 
       const realProfitBTC = hashrate * profitabilityPerTHPerDay;
       const realProfitUSD = realProfitBTC * btcPrice;
