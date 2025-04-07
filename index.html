@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Майнинг калькулятора на ГПУ</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+    .container {
+      max-width: 400px;
+      margin: auto;
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    h1 {
+      font-size: 20px;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 10px;
+      background: #f0f0f0;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .slider-container {
+      margin-top: 10px;
+    }
+    .slider-container input {
+      width: 100%;
+    }
+    .small {
+      font-size: 12px;
+      color: #666;
+      text-align: center;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Bitcoin Mining Calculator</h1>
+    
+    <div id="btc-price">BTC Price: Loading...</div>
+    <div id="profit-1ths">1 TH/s Daily Profit: Loading...</div>
+
+    <label>Ваш хешрейт (TH/s)</label>
+    <input type="number" id="hashrate" value="100" />
+
+    <label>Стоимость ГПУ (USD)</label>
+    <input type="number" id="generator" value="2000" />
+    
+    <label>Стоимость оборудования (USD)</label>
+    <input type="number" id="equipment" value="5000" />
+
+    <div class="slider-container">
+      <label>Загруженность генератора (%)</label>
+      <input type="range" id="gen-load" min="0" max="100" value="100" step="10" />
+      <div id="gen-label">100%</div>
+    </div>
+
+    <div class="result" id="result">
+      Вычисляем...
+    </div>
+
+    <div class="small">Made up by LOGEECK</div>
+  </div>
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+
+    const profitabilityPerTHPerDay = 0.000045; // BTC per 1 TH/s per day (примерная)
+    let btcPrice = 0;
+
+    async function fetchBTC() {
+      const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+      const data = await res.json();
+      btcPrice = data.bitcoin.usd;
+      document.getElementById('btc-price').textContent = `BTC Price: $${btcPrice}`;
+      document.getElementById('profit-1ths').textContent = `1 TH/s Daily Profit: ${(profitabilityPerTHPerDay * btcPrice).toFixed(2)} USD`;
+      calculate();
+    }
+
+    function calculate() {
+      const h = parseFloat(document.getElementById('hashrate').value) || 0;
+      const g = parseFloat(document.getElementById('generator').value) || 0;
+      const e = parseFloat(document.getElementById('equipment').value) || 0;
+      const load = parseInt(document.getElementById('gen-load').value) || 100;
+
+      const realProfitBTC = h * profitabilityPerTHPerDay * (load / 100);
+      const realProfitUSD = realProfitBTC * btcPrice;
+      const monthlyProfitUSD = realProfitUSD * 30;
+      const totalCost = g + e;
+      const roiDays = totalCost / (realProfitUSD || 1);
+
+document.getElementById('result').innerHTML = `
+  Ежедневная прибыль: <b>${realProfitBTC.toFixed(8)} BTC</b> (~$${realProfitUSD.toFixed(2)})<br/>
+  Прибыль в месяц: ~$${monthlyProfitUSD.toFixed(2)}<br/>
+  Окупаемость: <b>${Math.round(roiDays)} дней</b>
+`;
+
+    }
+
+    document.getElementById('hashrate').addEventListener('input', calculate);
+    document.getElementById('generator').addEventListener('input', calculate);
+    document.getElementById('equipment').addEventListener('input', calculate);
+    document.getElementById('gen-load').addEventListener('input', (e) => {
+      document.getElementById('gen-label').textContent = e.target.value + "%";
+      calculate();
+    });
+
+    fetchBTC();
+  </script>
+</body>
+</html>
