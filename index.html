@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Майнинг калькулятора на ГПУ</title>
+  <title>Майнинг-калькулятор на ГПУ</title>
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
@@ -49,12 +49,6 @@
       font-size: 14px;
       color: #0288d1;
     }
-    .slider-container {
-      margin-top: 10px;
-    }
-    .slider-container input {
-      width: 100%;
-    }
     .small {
       font-size: 12px;
       color: #0288d1;
@@ -71,25 +65,36 @@
 </head>
 <body>
   <div class="container">
-    <h1>Bitcoin Mining Calculator</h1>
-    
+    <h1>Майнинг-калькулятор на ГПУ</h1>
+
     <div id="btc-price">BTC Price: Loading...</div>
-    <div id="profit-1ths">1 TH/s Daily Profit: Loading...</div>
 
-    <label>Ваш хешрейт (TH/s)</label>
-    <input type="number" id="hashrate" value="100" />
+    <label>Производительность устройства (TH)</label>
+    <input type="number" id="device-th" value="190" />
 
-    <label>Стоимость ГПУ (USD)</label>
+    <label>Мощность устройства (кВт)</label>
+    <input type="number" id="device-power" value="4" />
+
+    <label>Количество устройств</label>
+    <input type="number" id="device-count" value="10" />
+
+    <label>Стоимость устройства (USD)</label>
     <input type="number" id="generator" value="2000" />
-    
+
     <label>Стоимость оборудования (USD)</label>
     <input type="number" id="equipment" value="5000" />
 
-    <div class="slider-container">
-      <label>Загруженность генератора (%)</label>
-      <input type="range" id="gen-load" min="0" max="100" value="100" step="10" />
-      <div id="gen-label">100%</div>
-    </div>
+    <label>Мощность ГПУ (кВт)</label>
+    <input type="number" id="gpu-power" value="250" />
+
+    <label>Стоимость ГПУ (USD)</label>
+    <input type="number" id="gpu-cost" value="20000" />
+
+    <label>Стоимость 1 кВт/ч (USD)</label>
+    <input type="number" id="energy-cost" value="0.035" />
+
+    <label>Прибыльность 1 TH/s (BTC)</label>
+    <input type="number" id="profitability" value="0.00000052" step="0.00000001" />
 
     <div class="result" id="result">
       Вычисляем...
@@ -107,7 +112,6 @@
     const tg = window.Telegram.WebApp;
     tg.expand();
 
-    const profitabilityPerTHPerDay = 0.00000052; // BTC per 1 TH/s per day (примерная)
     let btcPrice = 0;
 
     async function fetchBTC() {
@@ -115,36 +119,53 @@
       const data = await res.json();
       btcPrice = data.bitcoin.usd;
       document.getElementById('btc-price').textContent = `BTC Price: $${btcPrice}`;
-      document.getElementById('profit-1ths').textContent = `1 TH/s Daily Profit: ${(profitabilityPerTHPerDay * btcPrice).toFixed(2)} USD`;
       calculate();
     }
 
     function calculate() {
-      const h = parseFloat(document.getElementById('hashrate').value) || 0;
-      const g = parseFloat(document.getElementById('generator').value) || 0;
-      const e = parseFloat(document.getElementById('equipment').value) || 0;
-      const load = parseInt(document.getElementById('gen-load').value) || 100;
+      const deviceTH = parseFloat(document.getElementById('device-th').value) || 0;
+      const devicePower = parseFloat(document.getElementById('device-power').value) || 0;
+      const deviceCount = parseFloat(document.getElementById('device-count').value) || 0;
+      const generatorCost = parseFloat(document.getElementById('generator').value) || 0;
+      const equipmentCost = parseFloat(document.getElementById('equipment').value) || 0;
+      const gpuPower = parseFloat(document.getElementById('gpu-power').value) || 250;
+      const gpuCost = parseFloat(document.getElementById('gpu-cost').value) || 20000;
+      const energyCost = parseFloat(document.getElementById('energy-cost').value) || 0.035;
+      const profitabilityPerTHPerDay = parseFloat(document.getElementById('profitability').value) || 0.00000052;
 
-      const realProfitBTC = h * profitabilityPerTHPerDay * (load / 100);
-      const realProfitUSD = realProfitBTC * btcPrice;
-      const monthlyProfitUSD = realProfitUSD * 30;
-      const totalCost = g + e;
-      const roiDays = totalCost / (realProfitUSD || 1);
+      const totalDevicePower = devicePower * deviceCount; // Общая мощность всех устройств
+      const totalHashrate = deviceTH * deviceCount; // Общий хешрейт (для каждого устройства по TH)
+      const maxDevices = Math.floor(gpuPower / devicePower); // Максимальное количество устройств на один ГПУ
+
+      // Энергозатраты в месяц
+      const monthlyEnergyCost = (devicePower * deviceCount * energyCost * 24 * 30);
+
+      // Доход устройств за месяц
+      const monthlyRevenueBTC = deviceCount * deviceTH * profitabilityPerTHPerDay * 30;
+      const monthlyRevenueUSD = monthlyRevenueBTC * btcPrice;
+
+      // Окупаемость в месяцах
+      const totalCost = gpuCost + equipmentCost + generatorCost * deviceCount;
+      const roiMonths = (totalCost + monthlyEnergyCost - monthlyRevenueUSD) / monthlyRevenueUSD;
 
       document.getElementById('result').innerHTML = `
-        Ежедневная прибыль: <b>${realProfitBTC.toFixed(8)} BTC</b> (~$${realProfitUSD.toFixed(2)})<br/>
-        Прибыль в месяц: ~$${monthlyProfitUSD.toFixed(2)}<br/>
-        Окупаемость: <b>${Math.round(roiDays)} дней</b>
+        Общий хешрейт: <b>${totalHashrate} TH/s</b><br/>
+        Максимальное количество устройств: <b>${maxDevices}</b><br/>
+        Ежемесячные затраты на электроэнергию: <b>$${monthlyEnergyCost.toFixed(2)}</b><br/>
+        Доход в месяц: <b>${monthlyRevenueBTC.toFixed(8)} BTC</b> (~$${monthlyRevenueUSD.toFixed(2)})<br/>
+        Окупаемость: <b>${roiMonths.toFixed(2)} месяцев</b>
       `;
     }
 
-    document.getElementById('hashrate').addEventListener('input', calculate);
+    document.getElementById('device-th').addEventListener('input', calculate);
+    document.getElementById('device-power').addEventListener('input', calculate);
+    document.getElementById('device-count').addEventListener('input', calculate);
     document.getElementById('generator').addEventListener('input', calculate);
     document.getElementById('equipment').addEventListener('input', calculate);
-    document.getElementById('gen-load').addEventListener('input', (e) => {
-      document.getElementById('gen-label').textContent = e.target.value + "%";
-      calculate();
-    });
+    document.getElementById('gpu-power').addEventListener('input', calculate);
+    document.getElementById('gpu-cost').addEventListener('input', calculate);
+    document.getElementById('energy-cost').addEventListener('input', calculate);
+    document.getElementById('profitability').addEventListener('input', calculate);
 
     fetchBTC();
   </script>
